@@ -1,0 +1,58 @@
+sequenceDiagram
+  autonumber
+  actor A as Администратор
+  participant W as Веб-интерфейс
+  participant S as API-сервер
+  participant P as PostgreSQL
+  participant R as RDF-хранилище
+  participant G as GitLab
+  A->>W: Описывает изменение (FR-03)
+  W->>S: POST /changes
+  S->>S: Проверка сессии и роли (NFR-02)
+  S->>P: Сохранить черновик, статус draft
+  S-->>W: 201, черновик
+  A->>W: Запускает проверку
+  W->>S: POST /changes/{id}/check
+  S->>G: GET /members контейнеров, предков, потомков (FR-01)
+  G-->>S: Прямые участники, роли, сроки
+  S->>P: Записать sync_run, обновить assignment
+  S->>R: Обновить граф назначений
+  S->>R: Собрать временные графы «до» и «после»
+  S->>R: SPARQL: права до и после (FR-04)
+  R-->>S: Появятся и пропадут
+  S->>R: SPARQL по обоим графам: типы 1–3 (FR-05)
+  R-->>S: Нарушения
+  S->>R: Удалить граф «до», сохранить граф «после»
+  S->>S: Сравнить ключи ошибок: новые и прежние
+  S->>P: Записать check_run со scope_hash, permission_delta, finding
+  S-->>W: Разница, ошибки, статус
+  W-->>A: Показывает результат
+  Note over W,G: Шаги 11–20 не дольше 10 с (NFR-01)
+  A->>W: Подтверждает
+  W->>S: POST /changes/{id}/apply
+  alt статус не checked или есть новая блокирующая ошибка
+    S-->>W: 422, применение отклонено
+    W-->>A: Показывает причину
+  else можно применять
+    S->>P: Статус applying, confirmed_by, начало в audit_log
+    S->>G: GET /members контейнеров, предков, потомков
+    G-->>S: Роли и сроки
+    alt scope_hash или версия политик не совпали
+      S->>P: Статус stale
+      S-->>W: 409, нужна повторная проверка
+      W->>S: Повторный POST /changes/{id}/check (шаг 7)
+    else состояние совпадает
+      loop по каждому change_item (FR-07)
+        S->>G: POST, PUT или DELETE участника
+        G-->>S: 2xx или отказ
+        S->>P: apply_status, запись в audit_log (NFR-03)
+        break отказ GitLab
+          S->>P: Остальные операции: not_applied, запись в audit_log
+        end
+      end
+      S->>P: Обновить assignment, статус change_request
+      S->>R: Обновить граф назначений, удалить граф «после»
+      S-->>W: applied, partially_applied или failed
+      W-->>A: Итог по каждой операции
+    end
+  end

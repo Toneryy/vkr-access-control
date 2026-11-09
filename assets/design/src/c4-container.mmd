@@ -1,0 +1,20 @@
+flowchart TB
+  A["<b>Администратор доступа</b><br/>[Person]"]:::person
+  subgraph B["<span style='white-space:nowrap;padding-right:520px'>Система управления доступом [Software System]</span>"]
+    W["<b>Веб-интерфейс</b><br/>[Container: React, TypeScript]<br/><br/>Экраны изменений, разницы прав, ошибок, цепочек, политик и журнала"]:::cont
+    S["<b>API-сервер</b><br/>[Container: Go]<br/><br/>Импорт, политики, изменения, проверки, объяснение прав, применение, журнал. Токен GitLab хранится только здесь"]:::cont
+    P[("<b>PostgreSQL</b><br/>[Container: реляционная БД]<br/><br/>Копия назначений, реестр версий политик, изменения, результаты проверок, журнал")]:::cont
+    R[("<b>RDF-хранилище</b><br/>[Container: SPARQL 1.1, SHACL]<br/><br/>Онтология ODRL-RBAC, политики, граф назначений для анализа")]:::cont
+  end
+  G["<b>GitLab</b><br/>[External System]<br/><br/>Фактические участники и роли, вход пользователей"]:::ext
+  A -->|"Работает в браузере<br/>[HTTPS]"| W
+  W -->|"Вызывает API<br/>[JSON, HTTPS]"| S
+  S -->|"Читает и пишет<br/>[SQL]"| P
+  S -->|"Запросы и проверки<br/>[HTTP, SPARQL, SHACL]"| R
+  S -->|"Читает и меняет участников<br/>[REST API]"| G
+  S -->|"Обмен кода входа<br/>[OIDC]"| G
+  W -->|"Переход на вход<br/>[OIDC]"| G
+  classDef person fill:#08427b,stroke:#052e56,color:#fff
+  classDef cont fill:#438dd5,stroke:#2e6295,color:#fff
+  classDef ext fill:#8a8a8a,stroke:#5e5e5e,color:#fff
+  style B fill:#ffffff,stroke:#1168bd,stroke-dasharray:6 4,color:#0b4884
