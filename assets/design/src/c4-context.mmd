@@ -1,0 +1,12 @@
+flowchart TB
+  M["<b>Руководитель команды</b><br/>[Person]<br/><br/>Просит выдать или снять доступ"]:::person
+  A["<b>Администратор доступа</b><br/>[Person]<br/><br/>Готовит, проверяет и подтверждает изменения прав"]:::person
+  S["<b>Система управления доступом</b><br/>[Software System]<br/><br/>Показывает разницу прав, проверяет конфигурацию, объясняет права, применяет изменения"]:::system
+  G["<b>GitLab</b><br/>[External System]<br/><br/>Группы, проекты, участники и их роли; вход пользователей"]:::ext
+  M -->|"Присылает запрос<br/>[чат, заявка]"| A
+  A -->|"Работает с изменениями<br/>[HTTPS]"| S
+  S -->|"Читает и меняет участников<br/>[REST API]"| G
+  S -->|"Проверяет вход администратора<br/>[OpenID Connect]"| G
+  classDef person fill:#08427b,stroke:#052e56,color:#fff
+  classDef system fill:#1168bd,stroke:#0b4884,color:#fff
+  classDef ext fill:#8a8a8a,stroke:#5e5e5e,color:#fff

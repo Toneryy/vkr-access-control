@@ -1,0 +1,61 @@
+sequenceDiagram
+  autonumber
+  actor A as Администратор
+  participant W as Веб-интерфейс
+  participant S as API-сервер
+  participant P as PostgreSQL
+  participant R as RDF-хранилище
+  participant G as GitLab
+  Note over A,G: А. Вход (NFR-02)
+  A->>W: Открывает систему
+  W->>G: Переход на страницу входа [OIDC]
+  G-->>W: Код авторизации
+  W->>S: Код авторизации
+  S->>G: Обмен кода на токены, запрос userinfo
+  G-->>S: Идентификатор и группы пользователя
+  alt пользователь в служебной группе администраторов
+    S->>P: Создать или обновить gitlab_user
+    S-->>W: Сессия
+  else иначе
+    S-->>W: 403
+  end
+  Note over A,G: Б. Полный импорт (FR-01)
+  A->>W: Запускает импорт
+  W->>S: POST /sync
+  S->>G: GET групп, подгрупп и проектов
+  G-->>S: Иерархия контейнеров
+  loop по каждому контейнеру
+    S->>G: GET /members
+    G-->>S: Прямые участники
+  end
+  S->>P: Записать sync_run, container, role, gitlab_user, assignment
+  S->>R: Перестроить граф назначений
+  S-->>W: Итог импорта
+  Note over A,G: В. Публикация версии политик (FR-02)
+  A->>W: Правит роли, запреты, правила разделения обязанностей
+  W->>S: POST /policies
+  S->>R: Загрузить черновой граф
+  S->>R: SHACL и SPARQL: типы 4 и 6
+  R-->>S: Нарушения
+  alt есть ошибки типов 4 или 6
+    S->>P: Записать check_run kind=policy, finding
+    S-->>W: 422, версия не опубликована
+  else ошибок нет
+    S->>R: Сделать граф действующей версией
+    S->>P: Записать policy_version, check_run, запись в audit_log
+    S-->>W: Новая версия
+  end
+  Note over A,G: Г. Полная проверка (FR-05)
+  A->>W: Запускает полную проверку
+  W->>S: POST /checks
+  S->>R: SHACL и SPARQL по всей конфигурации: типы 1–6
+  R-->>S: Нарушения
+  S->>P: Записать check_run kind=full, finding
+  S-->>W: Итог проверки
+  Note over A,G: Д. Отчеты и журнал (FR-08)
+  A->>W: Задает фильтры
+  W->>S: GET /reports/findings, GET /audit
+  S->>P: SELECT по пользователю, контейнеру, дате
+  P-->>S: Записи
+  S-->>W: Отчет или журнал
+  W-->>A: Показывает результат

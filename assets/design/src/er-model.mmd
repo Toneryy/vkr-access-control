@@ -1,0 +1,120 @@
+erDiagram
+  gitlab_user {
+    bigint id PK
+    bigint gitlab_id UK
+    text username
+    text display_name
+    text state
+  }
+  container {
+    bigint id PK
+    text kind "UK2"
+    bigint gitlab_id "UK2"
+    bigint parent_id FK
+    text full_path
+  }
+  role {
+    bigint id PK
+    text code UK
+    int access_level
+    text role_iri
+  }
+  sync_run {
+    bigint id PK
+    timestamptz started_at
+    timestamptz finished_at
+    text status
+    text gitlab_version
+  }
+  assignment {
+    bigint id PK
+    bigint user_id FK "UK1"
+    bigint container_id FK "UK1"
+    bigint role_id FK
+    date expires_at
+    bigint sync_run_id FK
+  }
+  policy_version {
+    bigint id PK
+    text graph_iri UK
+    char64 content_hash
+    bigint author_id FK
+    timestamptz published_at
+  }
+  change_request {
+    bigint id PK
+    bigint author_id FK
+    text status
+    text reason
+    timestamptz created_at
+    bigint confirmed_by FK
+    timestamptz confirmed_at
+  }
+  change_item {
+    bigint id PK
+    bigint change_request_id FK
+    text op
+    bigint user_id FK
+    bigint container_id FK
+    bigint old_role_id FK
+    bigint new_role_id FK
+    date old_expires_at
+    date new_expires_at
+    text apply_status
+    text gitlab_error
+  }
+  check_run {
+    bigint id PK
+    text kind
+    bigint change_request_id FK
+    bigint policy_version_id FK
+    bigint sync_run_id FK
+    char64 scope_hash
+    timestamptz started_at
+    int duration_ms
+    text status
+  }
+  permission_delta {
+    bigint id PK
+    bigint check_run_id FK
+    bigint user_id FK
+    bigint container_id FK
+    text capability_iri
+    text direction
+  }
+  finding {
+    bigint id PK
+    bigint check_run_id FK
+    smallint error_type "1–6"
+    text error_key
+    boolean is_new
+    boolean is_blocking
+    bigint user_id FK
+    bigint container_id FK
+    text rule_iri
+    text message
+  }
+  audit_log {
+    bigint id PK "только INSERT"
+    timestamptz occurred_at
+    bigint actor_id FK
+    text action
+    bigint change_request_id FK
+    bigint check_run_id FK
+    bigint target_user_id FK
+    bigint container_id FK
+    jsonb payload
+  }
+  container |o--o{ container : "родитель"
+  container ||--o{ assignment : "в контейнере"
+  role ||--o{ assignment : "роль"
+  gitlab_user ||--o{ assignment : "участник"
+  sync_run ||--o{ assignment : "получено"
+  gitlab_user ||--o{ change_request : "автор"
+  sync_run |o--o{ check_run : "основа"
+  change_request ||--|{ change_item : "состоит из"
+  change_request |o--o{ check_run : "проверяется"
+  check_run ||--o{ permission_delta : "разница прав"
+  check_run ||--o{ finding : "находит"
+  change_request |o--o{ audit_log : "записи"
+  policy_version |o--o{ check_run : "по версии"
